@@ -1,42 +1,80 @@
 # Soroban Voting App
 
-Soroban Voting App is a simple decentralized polling application built on the Stellar ecosystem using Soroban smart contracts. This project allows users to create polls, vote for one of two available options, view voting results, and delete polls.
+Soroban Voting App is a simple decentralized polling application built with Stellar Soroban. It lets users create polls, fetch on-chain poll data, vote for one of two options, and delete a poll by ID.
 
-All poll data and vote counts are stored on-chain using Soroban contract storage.
+The smart contract is written in Rust with the Soroban SDK, and the frontend is built with React + Vite. The frontend connects directly to the deployed Soroban contract on Stellar Testnet and uses Freighter Wallet to sign write transactions.
 
-## Project Overview
+## Why This Is Different From the Basic Contract Example
 
-This project was created as a Stellar Soroban workshop submission. The smart contract is written in Rust and deployed on the Stellar Testnet.
+This project is not just a simple data storage contract. It models a voting workflow with structured poll data, two voting options, vote counters, and update/delete operations.
 
-The application is different from the basic Notes Contract example used during the hands-on session. Instead of storing notes, this contract stores polling data and provides voting functionality.
+Instead of only storing plain user content, the contract manages:
+
+- Poll IDs
+- Poll questions
+- Two voting options
+- Vote counts for each option
+- Vote updates through `vote_poll`
+- Poll deletion by ID
+
+This makes the project closer to a real interactive dApp workflow where the frontend reads contract state and sends signed transactions for state-changing actions.
 
 ## Features
 
-* Create a new poll with a question and two options
-* View all existing polls stored on-chain
-* Vote for option A or option B
-* Track vote counts for each option
-* Delete a poll by its ID
-* Store poll data using Soroban instance storage
+- Create a poll with a question, option A, and option B
+- Fetch all polls from the deployed Soroban contract
+- Vote for option A or option B
+- Delete a poll by ID
+- Store poll data and vote counts on-chain
+- Connect Freighter Wallet
+- Disconnect wallet
+- Display the connected wallet address
+- Show transaction status and feedback in the UI
+- Sign write transactions with Freighter Wallet
+- Interact with Stellar Testnet
 
-## Smart Contract
+## Tech Stack
 
-The smart contract is built using:
+- Stellar
+- Soroban
+- Rust
+- Soroban SDK
+- Stellar CLI
+- Stellar Testnet
+- React
+- Vite
+- TypeScript
+- Freighter Wallet
 
-* Rust
-* Soroban SDK
-* Stellar CLI
-* Soroban Studio
+## Project Structure
 
-## Contract Name
-
-```rust
-VotingContract
+```text
+soroban-voting-app/
+├── contracts/
+│   └── voting/
+│       ├── src/
+│       │   └── lib.rs
+│       ├── Cargo.toml
+│       └── Makefile
+├── frontend/
+│   ├── bindings/
+│   │   └── index.ts
+│   ├── src/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.ts
+├── Cargo.toml
+├── Cargo.lock
+└── README.md
 ```
 
-## Data Structure
+## Smart Contract Overview
 
-Each poll is stored using the following structure:
+The voting smart contract stores a list of polls in Soroban contract storage. Each poll contains a question, two answer options, and vote counters for both options.
+
+Each poll uses this structure:
 
 ```rust
 pub struct Poll {
@@ -49,84 +87,61 @@ pub struct Poll {
 }
 ```
 
+The contract exposes functions to create, read, update, and delete poll data.
+
 ## Smart Contract Functions
 
-### 1. `get_polls`
+### `create_poll(question, option_a, option_b)`
 
-```rust
-get_polls(env: Env) -> Vec<Poll>
-```
-
-Returns all polls stored in the contract.
-
-This function is used to display all available polls and their current voting results.
-
-### 2. `create_poll`
+Creates a new poll with a question and two voting options.
 
 ```rust
 create_poll(env: Env, question: String, option_a: String, option_b: String) -> String
 ```
 
-Creates a new poll with two voting options.
-
-Initial vote count:
+Initial vote counts are set to zero:
 
 ```text
 votes_a = 0
 votes_b = 0
 ```
 
-Example:
+### `get_polls()`
 
-```text
-question: Favorite programming language?
-option_a: Rust
-option_b: JavaScript
+Returns all polls stored by the contract.
+
+```rust
+get_polls(env: Env) -> Vec<Poll>
 ```
 
-### 3. `vote_poll`
+This is a read operation. The frontend uses it to display the current poll list and vote counts.
+
+### `vote_poll(id, choice)`
+
+Votes on a poll by ID.
 
 ```rust
 vote_poll(env: Env, id: u64, choice: u32) -> String
 ```
 
-Votes on a poll by ID.
-
-Choice value:
+Choice values:
 
 ```text
-choice = 1 -> vote for option_a
-choice = 2 -> vote for option_b
+1 = vote for option_a
+2 = vote for option_b
 ```
 
-If the choice is not `1` or `2`, the contract returns:
+### `delete_poll(id)`
 
-```text
-Invalid choice
-```
-
-If the poll ID is not found, the contract returns:
-
-```text
-Poll not found
-```
-
-### 4. `delete_poll`
+Deletes a poll by ID.
 
 ```rust
 delete_poll(env: Env, id: u64) -> String
 ```
 
-Deletes a poll by its ID.
+If the poll exists, it is removed from contract storage.
 
-If the poll is found, the contract removes it from storage.
-If the poll is not found, the contract returns:
-
-```text
-Poll not found
-```
-
-## Testnet Deployment
+## Testnet Deployment Information
 
 Network:
 
@@ -134,70 +149,191 @@ Network:
 Stellar Testnet
 ```
 
-Contract ID:
+Network passphrase:
+
+```text
+Test SDF Network ; September 2015
+```
+
+RPC URL:
+
+```text
+https://soroban-testnet.stellar.org
+```
+
+Deployed contract ID:
 
 ```text
 CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O
 ```
 
-## Example Poll Data
+## Frontend Integration
 
-Example poll created during testing:
+The React frontend imports the generated TypeScript bindings from `frontend/bindings`. It creates a contract client with:
 
-```text
-Question: Favorite programming language?
-Option A: Rust
-Option B: JavaScript
-```
+- The deployed contract ID
+- Stellar Testnet network passphrase
+- Stellar Testnet RPC URL
+- The connected Freighter wallet public key
+- A `signTransaction` function that calls Freighter
 
-Initial result:
+Read operations such as `get_polls()` can be simulated and displayed without submitting a transaction.
 
-```text
-votes_a: 0
-votes_b: 0
-```
+Write operations such as `create_poll`, `vote_poll`, and `delete_poll` require a Freighter signature. When the user clicks a write action button, Freighter opens a confirmation popup. After approval, the frontend submits the signed transaction to Stellar Testnet.
 
-After voting for option A:
+A backend is not required for this MVP because the frontend interacts directly with the deployed Soroban contract.
 
-```text
-votes_a: 1
-votes_b: 0
-```
+## How to Run the Smart Contract Locally
 
-## How to Build
-
-Run the following command from the contract project directory:
+Install the Rust target used by Soroban contracts:
 
 ```bash
+rustup target add wasm32v1-none
+```
+
+Run contract tests from the project root:
+
+```bash
+cargo test
+```
+
+You can also run tests from the contract folder:
+
+```bash
+cd contracts/voting
+cargo test
+```
+
+## How to Build the Contract
+
+From the project root:
+
+```bash
+cd contracts/voting
 stellar contract build
 ```
 
-## How to Deploy
-
-Deploy the contract to Stellar Testnet using:
+Or use the included Makefile:
 
 ```bash
-stellar contract deploy --source-account YOUR_WALLET_NAME --network testnet
+cd contracts/voting
+make build
 ```
 
-Replace `YOUR_WALLET_NAME` with the wallet name configured in Stellar CLI.
-
-After deployment, the command will return a Contract ID.
-
-## How to Invoke the Contract
-
-Replace the following values:
+The compiled WASM file will be generated under:
 
 ```text
-CONTRACT_ID = your deployed contract ID
-YOUR_WALLET_NAME = your Stellar CLI wallet name
+target/wasm32v1-none/release/
+```
+
+## How to Deploy the Contract
+
+Configure and fund a Stellar CLI wallet for Testnet before deploying. Use `YOUR_WALLET_NAME` as the placeholder for your local Stellar CLI identity.
+
+```bash
+stellar keys generate --global YOUR_WALLET_NAME --network testnet
+```
+
+Deploy the compiled contract to Stellar Testnet:
+
+```bash
+cd contracts/voting
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/voting.wasm \
+  --source-account YOUR_WALLET_NAME \
+  --network testnet
+```
+
+The command returns a contract ID. This project currently uses:
+
+```text
+CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O
+```
+
+## How to Generate TypeScript Bindings
+
+Generate TypeScript bindings from the deployed Testnet contract:
+
+```bash
+stellar contract bindings typescript \
+  --contract-id CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O \
+  --network testnet \
+  --output-dir frontend/bindings
+```
+
+The frontend imports the generated client from:
+
+```text
+frontend/bindings/index.ts
+```
+
+If you regenerate bindings after changing the Rust contract, update the frontend method calls to match the generated client method names.
+
+## How to Run the Frontend
+
+Install dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+Create a local environment file:
+
+```bash
+cp .env.example .env
+```
+
+Set the deployed contract ID in `frontend/.env`:
+
+```text
+VITE_STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+VITE_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
+VITE_STELLAR_CONTRACT_ID=CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O
+```
+
+Start the Vite dev server:
+
+```bash
+npm run dev
+```
+
+Build the frontend:
+
+```bash
+npm run build
+```
+
+## How to Use the App
+
+1. Install Freighter Wallet in your browser.
+2. Switch Freighter to Stellar Testnet.
+3. Open the frontend app.
+4. Click `Connect Freighter`.
+5. Confirm wallet access in Freighter.
+6. Click `Get Polls` to fetch polls from the deployed contract.
+7. Click `Create Sample Poll` to create a sample poll.
+8. Approve the transaction in Freighter.
+9. Click `Vote Rust` or `Vote JavaScript` to vote for option A or option B.
+10. Approve the vote transaction in Freighter.
+11. Click `Delete Poll ID 1` to delete poll ID 1.
+12. Approve the delete transaction in Freighter.
+
+The app displays basic status feedback after each action.
+
+## Example Invoke Commands Using Stellar CLI
+
+Use the deployed Testnet contract ID:
+
+```text
+CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O
 ```
 
 ### Get All Polls
 
 ```bash
 stellar contract invoke \
-  --id CONTRACT_ID \
+  --id CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O \
   --source-account YOUR_WALLET_NAME \
   --network testnet \
   -- \
@@ -208,7 +344,7 @@ stellar contract invoke \
 
 ```bash
 stellar contract invoke \
-  --id CONTRACT_ID \
+  --id CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O \
   --source-account YOUR_WALLET_NAME \
   --network testnet \
   -- \
@@ -218,13 +354,11 @@ stellar contract invoke \
   --option_b "JavaScript"
 ```
 
-### Vote on a Poll
-
-Vote for option A:
+### Vote for Option A
 
 ```bash
 stellar contract invoke \
-  --id CONTRACT_ID \
+  --id CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O \
   --source-account YOUR_WALLET_NAME \
   --network testnet \
   -- \
@@ -233,11 +367,11 @@ stellar contract invoke \
   --choice 1
 ```
 
-Vote for option B:
+### Vote for Option B
 
 ```bash
 stellar contract invoke \
-  --id CONTRACT_ID \
+  --id CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O \
   --source-account YOUR_WALLET_NAME \
   --network testnet \
   -- \
@@ -250,7 +384,7 @@ stellar contract invoke \
 
 ```bash
 stellar contract invoke \
-  --id CONTRACT_ID \
+  --id CBADFNON7JOPM3XK5DBEILJF4U4DT3KLWUSVJIGZUA3QBEKQD6GBJI3O \
   --source-account YOUR_WALLET_NAME \
   --network testnet \
   -- \
@@ -258,77 +392,19 @@ stellar contract invoke \
   --id 1
 ```
 
-## Frontend Integration Plan
-
-The smart contract is designed to be integrated with a frontend application.
-
-Possible frontend flow:
-
-1. User opens the voting app.
-2. Frontend calls `get_polls()` to display all polls.
-3. User creates a new poll using a form.
-4. Frontend calls `create_poll(question, option_a, option_b)`.
-5. User clicks a vote button.
-6. Frontend calls `vote_poll(id, choice)`.
-7. Frontend refreshes the poll list by calling `get_polls()`.
-8. User can delete a poll by calling `delete_poll(id)`.
-
-## Backend Integration Plan
-
-A backend is not required for the MVP because the frontend can interact directly with the Soroban smart contract.
-
-However, a backend can be added in the future for:
-
-* Transaction logging
-* User activity history
-* Poll metadata indexing
-* Faster query caching
-* API integration for frontend applications
-
-## Tech Stack
-
-* Stellar
-* Soroban
-* Rust
-* Soroban SDK
-* Soroban Studio
-* Stellar CLI
-* Stellar Testnet
-
-## Project Scope
-
-This project is an MVP smart contract for a decentralized voting application.
-
-Current scope:
-
-* On-chain poll storage
-* Two-option voting
-* Vote counting
-* Poll deletion
-
-Out of scope for this version:
-
-* Token transfer
-* Wallet-based vote restriction
-* One-user-one-vote validation
-* Poll expiration time
-* Multi-option polls
-* Frontend UI
-* Backend API
-
 ## Future Improvements
 
-Possible improvements for the next version:
+- Add custom poll creation form fields in the UI
+- Support more than two options per poll
+- Add wallet-based vote restrictions
+- Prevent duplicate voting from the same wallet
+- Add poll expiration time
+- Add poll owner authorization for deletion
+- Improve frontend loading and error states
+- Add event indexing or off-chain caching for faster reads
+- Add more contract unit tests
+- Add UI tests for wallet and transaction flows
 
-* Add wallet authentication
-* Prevent the same wallet from voting multiple times
-* Add poll expiration or deadline
-* Support more than two voting options
-* Add poll creator ownership
-* Restrict delete access to the poll creator
-* Build a frontend interface
-* Add backend indexing for better data display
+## License and Educational Purpose
 
-## License
-
-This project is created for educational and workshop submission purposes.
+This project was created for educational purposes and workshop submission. It is intended as a learning project for building a basic full-stack Stellar Soroban dApp with Rust smart contracts, React, Vite, and Freighter Wallet.
